@@ -4,11 +4,11 @@ been run on various Linux distributions; Darwin; Cygwin).  For native Windows
 compilation, see ../windows/INSTALL.
 
 You must first have completed the installation steps in ../tools/INSTALL
-(compiling OpenFst; getting ATLAS and CLAPACK headers).
+(compiling OpenFst and OpenBLAS; getting ATLAS and CLAPACK headers).
 
 The installation instructions are
 
-  ./configure --shared
+  ./run_config.sh  # default static with cuda and openblas, you may change that
   make depend -j 8
   make -j 8
 

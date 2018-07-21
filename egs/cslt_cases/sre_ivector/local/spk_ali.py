@@ -88,7 +88,7 @@ def generate_spk_ali(spk_dict, spk_num, len_dict, dir):
   cou.close()
   # write ali.ark with ali.scp
   cmd = ('. ./path.sh; copy-int-vector ark:' +
-         dir + '/ali.ark.tmp ark,t,scp:' +
+         dir + '/ali.ark.tmp ark,scp:' +
          dir + '/ali.ark,' + dir + '/ali.scp;' +
          'rm ' + dir + '/ali.ark.tmp')
   subprocess.check_call(cmd, shell=True)
