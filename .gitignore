@@ -18,6 +18,9 @@
 # mac store file
 .DS_Store
 
+# local task dir with date (yyyy-mm-dd)
+20[1-9][0-9]*
+
 # Compiled Object files and python ciles
 *.slo
 *.lo
