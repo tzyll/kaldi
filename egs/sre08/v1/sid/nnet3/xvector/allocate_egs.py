@@ -257,8 +257,10 @@ def main():
                 print("Ran out of speakers for archive {0}".format(archive_index + 1))
                 break
             spkr = spkrs.pop()
-            utt = get_random_utt(spkr, spk2utt, length)
-            utt_len = utt2len[utt]
+            utt_len = 0
+            while utt_len < length:
+                utt = get_random_utt(spkr, spk2utt, length)
+                utt_len = utt2len[utt]
             offset = get_random_offset(utt_len, length)
             this_egs.append( (utt, offset) )
         all_egs.append(this_egs)

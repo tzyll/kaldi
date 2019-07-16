@@ -1,0 +1,23 @@
+# Obtained by Zhiyuan Tang in July 2019.
+
+
+AP19-OLR challenge sets three tasks that will be evaluated and ranked separately.
+
+Task 1: Short-utterance LID, where the test utterances are as short as 1 second.
+
+Task 2: Cross-channel LID, where test data is in different channels from the training set.
+
+Task 3: Zero-resource LID, where no resources are provided for training before reference, but several reference utterances are provided for each language.
+
+
+Baseline results
+------------------------------
+Task             Cavg   EER%
+------------------------------
+short-utterance  0.1257 12.22
+cross-channel    0.3720 38.44
+zero-resource    0.2027 21.94
+------------------------------
+
+
+Please refer to http://olr.cslt.org for more info about the OLR Challenge 2019 and on how to request the challenge data used in this recipe.
