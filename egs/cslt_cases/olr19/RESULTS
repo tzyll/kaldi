@@ -7,7 +7,7 @@ Task 1: Short-utterance LID, where the test utterances are as short as 1 second.
 
 Task 2: Cross-channel LID, where test data is in different channels from the training set.
 
-Task 3: Zero-resource LID, where no resources are provided for training before reference, but several reference utterances are provided for each language.
+Task 3: Zero-resource LID, where no resources are provided for training before inference, but several reference utterances are provided for each language.
 
 
 Baseline results
