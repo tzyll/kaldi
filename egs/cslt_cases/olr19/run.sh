@@ -82,9 +82,9 @@ if [ $stage -le 7 ]; then
   for x in task_1 task_2 task_3/enroll task_3/test; do
     mkdir -p data_test_final/fbank/$x && cp -r data_test_final/$x/{spk2utt,utt2lang,utt2spk,wav.scp} data_test_final/fbank/$x
     mkdir -p data_test_final/mfcc/$x && cp -r data_test_final/$x/{spk2utt,utt2lang,utt2spk,wav.scp} data_test_final/mfcc/$x
-    steps/make_fbank.sh --nj $n --cmd "$train_cmd" --write-utt2num-frames true data_test_final/fbank/$x
-    steps/make_mfcc.sh --nj $n --cmd "$train_cmd" data_test_final/mfcc/$x
-    sid/compute_vad_decision.sh --nj $n --cmd "$train_cmd" data_test_final/mfcc/$x data_test_final/mfcc/$x/log data_test_final/mfcc/$x/data
+    steps/make_fbank.sh --nj 8 --cmd "$train_cmd" --write-utt2num-frames true data_test_final/fbank/$x
+    steps/make_mfcc.sh --nj 8 --cmd "$train_cmd" data_test_final/mfcc/$x
+    sid/compute_vad_decision.sh --nj 8 --cmd "$train_cmd" data_test_final/mfcc/$x data_test_final/mfcc/$x/log data_test_final/mfcc/$x/data
     cp data_test_final/mfcc/$x/vad.scp data_test_final/fbank/$x/vad.scp
   done
 
@@ -109,9 +109,13 @@ if [ $stage -le 8 ]; then
     # prepare trials
     local/prepare_trials.py data/fbank/train data_test_final/fbank/$x
     trials=data_test_final/fbank/$x/trials
+    # only keep the 6 target languages for task 2
     if [[ $x == "task_2" ]]; then
-      grep -E 'Tibet|Uyghu|ja-jp|ru-ru|vi-vn|zh-cn' data_test_final/fbank/$x/trials > data_test_final/fbank/$x/trials.6
+      grep -E 'Tibet |Uyghu |ja-jp |ru-ru |vi-vn |zh-cn ' data_test_final/fbank/$x/trials > data_test_final/fbank/$x/trials.6
       mv data_test_final/fbank/$x/trials.6 data_test_final/fbank/$x/trials
+      langs='Tibet Uyghu ja-jp ru-ru vi-vn zh-cn'
+      python local/filter_lre_matrix.py "$langs" exp/xvectors_$x/output.ark.utt > exp/xvectors_$x/output.ark.utt.6
+      mv exp/xvectors_$x/output.ark.utt.6 exp/xvectors_$x/output.ark.utt
     fi
     echo "---- $x ----"
     eer=`compute-eer <(python local/nnet3/prepare_for_eer.py $trials exp/xvectors_$x/output.ark.utt) 2> /dev/null`

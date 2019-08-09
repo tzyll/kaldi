@@ -10,7 +10,16 @@ Task 2: Cross-channel LID, where test data is in different channels from the tra
 Task 3: Zero-resource LID, where no resources are provided for training before inference, but several reference utterances are provided for each language.
 
 
-Baseline results
+Baseline results on AP19-OLR-dev (dev set for the challenge)
+------------------------------
+Task             Cavg   EER%
+------------------------------
+short-utterance  0.1271 12.37
+cross-channel    0.3868 43.13
+zero-resource    0.3393 34.47
+------------------------------
+
+Baseline results on AP19-OLR-test (standard test set for the challenge)
 ------------------------------
 Task             Cavg   EER%
 ------------------------------
