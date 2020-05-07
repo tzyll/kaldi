@@ -5,6 +5,8 @@ CC = gcc         # used for sph2pipe
 # CXX = clang++  # Uncomment these lines
 # CC = clang     # to build with Clang.
 
+CXXFLAGS += -fPIC
+
 # Note: OpenFst requires a relatively recent C++ compiler with C++11 support,
 # e.g. g++ >= 4.7, Apple clang >= 5.0 or LLVM clang >= 3.3.
 OPENFST_VERSION ?= 1.6.5
