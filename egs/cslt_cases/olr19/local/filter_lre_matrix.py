@@ -23,7 +23,7 @@ if len(sys.argv) != 3:
   sys.exit()
 
 langs = sys.argv[1].strip().split()
-print(' '.join(langs))
+langs_new = ''  # different order
 
 ids = []
 with open(sys.argv[2], 'r') as ls:
@@ -33,6 +33,8 @@ with open(sys.argv[2], 'r') as ls:
   for i in range(len(head)):
     if head[i] in langs:
       ids.append(i)
+      langs_new = langs_new + ' ' + head[i]
+  print(langs_new)
   # the rest are scores
   for i in [line.strip().split() for line in lines[1:]]:
     new_l = i[0]
