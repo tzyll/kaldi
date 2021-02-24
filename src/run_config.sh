@@ -1,0 +1,6 @@
+./configure --shared \
+            --use-cuda=yes --cudatk-dir=/_tools/cuda-10.0 \
+            --mathlib=OPENBLAS --openblas-root=../tools/OpenBLAS/install
+
+echo ... install ../tools/OpenBLAS first ...
+echo ... may revise kaldi.mk with 'CUDA_FLAGS -std=c++11' ...

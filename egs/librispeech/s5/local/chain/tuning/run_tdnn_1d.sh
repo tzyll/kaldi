@@ -127,10 +127,10 @@ set -e
 
 # configs for 'chain'
 stage=0
-decode_nj=50
-train_set=train_960_cleaned
-gmm=tri6b_cleaned
-nnet3_affix=_cleaned
+decode_nj=40
+train_set=train_960
+gmm=tri6b
+nnet3_affix=
 
 # The rest are configs specific to this script.  Most of the parameters
 # are just hardcoded at this level, in the commands below.
@@ -142,7 +142,7 @@ decode_iter=
 
 # TDNN options
 frames_per_eg=150,110,100
-remove_egs=true
+remove_egs=false
 common_egs_dir=
 xent_regularize=0.1
 dropout_schedule='0,0@0.20,0.5@0.50,0'
@@ -168,26 +168,26 @@ fi
 # nnet3 setup, and you can skip them by setting "--stage 11" if you have already
 # run those things.
 
-local/nnet3/run_ivector_common.sh --stage $stage \
-                                  --train-set $train_set \
-                                  --gmm $gmm \
-                                  --num-threads-ubm 6 --num-processes 3 \
-                                  --nnet3-affix "$nnet3_affix" || exit 1;
+#local/nnet3/run_ivector_common.sh --stage $stage \
+#                                  --train-set $train_set \
+#                                  --gmm $gmm \
+#                                  --num-threads-ubm 6 --num-processes 3 \
+#                                  --nnet3-affix "$nnet3_affix" || exit 1;
 
 gmm_dir=exp/$gmm
-ali_dir=exp/${gmm}_ali_${train_set}_sp
-tree_dir=exp/chain${nnet3_affix}/tree_sp${tree_affix:+_$tree_affix}
-lang=data/lang_chain
-lat_dir=exp/chain${nnet3_affix}/${gmm}_${train_set}_sp_lats
-dir=exp/chain${nnet3_affix}/tdnn${affix:+_$affix}_sp
-train_data_dir=data/${train_set}_sp_hires
-lores_train_data_dir=data/${train_set}_sp
-train_ivector_dir=exp/nnet3${nnet3_affix}/ivectors_${train_set}_sp_hires
+ali_dir=exp/${gmm}_ali_${train_set}
+tree_dir=exp/chain${nnet3_affix}/tree${tree_affix:+_$tree_affix}
+lang=data/lang_chain${nnet3_affix}
+lat_dir=exp/chain${nnet3_affix}/${gmm}_${train_set}_lats
+dir=exp/chain${nnet3_affix}/tdnn${affix:+_$affix}
+train_data_dir=data/fbank/${train_set}
+lores_train_data_dir=data/${train_set}
+#train_ivector_dir=exp/nnet3${nnet3_affix}/ivectors_${train_set}_hires
 
 # if we are using the speed-perturbed data we need to generate
 # alignments for it.
 
-for f in $gmm_dir/final.mdl $train_data_dir/feats.scp $train_ivector_dir/ivector_online.scp \
+for f in $gmm_dir/final.mdl $train_data_dir/feats.scp \
     $lores_train_data_dir/feats.scp $ali_dir/ali.1.gz; do
   [ ! -f $f ] && echo "$0: expected file $f to exist" && exit 1
 done
@@ -217,13 +217,13 @@ if [ $stage -le 14 ]; then
   mkdir -p $dir/configs
 
   cat <<EOF > $dir/configs/network.xconfig
-  input dim=100 name=ivector
+  #input dim=100 name=ivector
   input dim=40 name=input
 
   # please note that it is important to have input layer with the name=input
   # as the layer immediately preceding the fixed-affine-layer to enable
   # the use of short notation for the descriptor
-  fixed-affine-layer name=lda input=Append(-1,0,1,ReplaceIndex(ivector, t, 0)) affine-transform-file=$dir/configs/lda.mat
+  fixed-affine-layer name=lda input=Append(-1,0,1) affine-transform-file=$dir/configs/lda.mat
 
   # the first splicing is moved before the lda layer, so no splicing here
   relu-batchnorm-dropout-layer name=tdnn1 $affine_opts dim=1536
@@ -262,7 +262,7 @@ if [ $stage -le 15 ]; then
 
   steps/nnet3/chain/train.py --stage $train_stage \
     --cmd "$decode_cmd" \
-    --feat.online-ivector-dir $train_ivector_dir \
+    --use-gpu wait \
     --feat.cmvn-opts "--norm-means=false --norm-vars=false" \
     --chain.xent-regularize $xent_regularize \
     --chain.leaky-hmm-coefficient 0.1 \
@@ -309,16 +309,15 @@ if [ $stage -le 17 ]; then
       (
       steps/nnet3/decode.sh --acwt 1.0 --post-decode-acwt 10.0 \
           --nj $decode_nj --cmd "$decode_cmd" $iter_opts \
-          --online-ivector-dir exp/nnet3${nnet3_affix}/ivectors_${decode_set}_hires \
-          $graph_dir data/${decode_set}_hires $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_tgsmall || exit 1
+          $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_tgsmall || exit 1
       steps/lmrescore.sh --cmd "$decode_cmd" --self-loop-scale 1.0 data/lang_test_{tgsmall,tgmed} \
-          data/${decode_set}_hires $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tgmed} || exit 1
+          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tgmed} || exit 1
       steps/lmrescore_const_arpa.sh \
           --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
-          data/${decode_set}_hires $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tglarge} || exit 1
+          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tglarge} || exit 1
       steps/lmrescore_const_arpa.sh \
           --cmd "$decode_cmd" data/lang_test_{tgsmall,fglarge} \
-          data/${decode_set}_hires $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,fglarge} || exit 1
+          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,fglarge} || exit 1
       ) || touch $dir/.error &
   done
   wait
@@ -332,19 +331,20 @@ if $test_online_decoding && [ $stage -le 18 ]; then
   # note: if the features change (e.g. you add pitch features), you will have to
   # change the options of the following command line.
   steps/online/nnet3/prepare_online_decoding.sh \
-       --mfcc-config conf/mfcc_hires.conf \
+       --feature-type fbank \
+       --fbank-config conf/fbank.conf \
        $lang exp/nnet3${nnet3_affix}/extractor $dir ${dir}_online
 
   rm $dir/.error 2>/dev/null || true
   for data in test_clean test_other dev_clean dev_other; do
     (
-      nspk=$(wc -l <data/${data}_hires/spk2utt)
+      #nspk=$(wc -l <data/${data}_hires/spk2utt)
       # note: we just give it "data/${data}" as it only uses the wav.scp, the
       # feature type does not matter.
       steps/online/nnet3/decode.sh \
           --acwt 1.0 --post-decode-acwt 10.0 \
-          --nj $nspk --cmd "$decode_cmd" \
-          $graph_dir data/${data} ${dir}_online/decode_${data}_tgsmall || exit 1
+          --nj $decode_nj --cmd "$decode_cmd" \
+          $graph_dir data/fbank/${data} ${dir}_online/decode_${data}_tgsmall || exit 1
 
     ) || touch $dir/.error &
   done

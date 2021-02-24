@@ -26,9 +26,9 @@ cleanup_stage=0
 data=data/train_960
 cleanup_affix=cleaned
 srcdir=exp/tri6b
-nj=100
-decode_nj=16
-decode_num_threads=4
+nj=40
+decode_nj=40
+decode_num_threads=1
 
 . ./path.sh
 . ./cmd.sh

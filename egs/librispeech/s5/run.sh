@@ -4,13 +4,14 @@
 # Set this to somewhere where you want to put your data, or where
 # someone else has already put it.  You'll want to change this
 # if you're not on the CLSP grid.
-data=/export/a15/vpanayotov/data
+data=/tzy/_corpus
 
 # base url for downloads.
 data_url=www.openslr.org/resources/12
 lm_url=www.openslr.org/resources/11
-mfccdir=mfcc
+
 stage=1
+CUDA_VISIBLE_DEVICES=0
 
 . ./cmd.sh
 . ./path.sh
@@ -75,20 +76,10 @@ if [ $stage -le 4 ]; then
     data/lang_nosp data/lang_nosp_test_fglarge
 fi
 
-if [ $stage -le 5 ]; then
-  # spread the mfccs over various machines, as this data-set is quite large.
-  if [[  $(hostname -f) ==  *.clsp.jhu.edu ]]; then
-    mfcc=$(basename mfccdir) # in case was absolute pathname (unlikely), get basename.
-    utils/create_split_dir.pl /export/b{02,11,12,13}/$USER/kaldi-data/egs/librispeech/s5/$mfcc/storage \
-     $mfccdir/storage
-  fi
-fi
-
-
 if [ $stage -le 6 ]; then
   for part in dev_clean test_clean dev_other test_other train_clean_100; do
-    steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part exp/make_mfcc/$part $mfccdir
-    steps/compute_cmvn_stats.sh data/$part exp/make_mfcc/$part $mfccdir
+    steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/$part
+    steps/compute_cmvn_stats.sh data/$part
   done
 fi
 
@@ -189,10 +180,8 @@ if [ $stage -le 15 ]; then
   # now add the "clean-360" subset to the mix ...
   local/data_prep.sh \
     $data/LibriSpeech/train-clean-360 data/train_clean_360
-  steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_clean_360 \
-                     exp/make_mfcc/train_clean_360 $mfccdir
-  steps/compute_cmvn_stats.sh \
-    data/train_clean_360 exp/make_mfcc/train_clean_360 $mfccdir
+  steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_clean_360
+  steps/compute_cmvn_stats.sh data/train_clean_360
 
   # ... and then combine the two sets into a 460 hour one
   utils/combine_data.sh \
@@ -222,10 +211,8 @@ if [ $stage -le 17 ]; then
   # prepare the 500 hour subset.
   local/data_prep.sh \
     $data/LibriSpeech/train-other-500 data/train_other_500
-  steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_other_500 \
-                     exp/make_mfcc/train_other_500 $mfccdir
-  steps/compute_cmvn_stats.sh \
-    data/train_other_500 exp/make_mfcc/train_other_500 $mfccdir
+  steps/make_mfcc.sh --cmd "$train_cmd" --nj 40 data/train_other_500
+  steps/compute_cmvn_stats.sh data/train_other_500
 
   # combine all the data
   utils/combine_data.sh \
@@ -260,9 +247,11 @@ fi
 
 
 if [ $stage -le 19 ]; then
+  steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
+                       data/train_960 data/lang exp/tri6b exp/tri6b_ali_train_960
   # this does some data-cleaning. The cleaned data should be useful when we add
   # the neural net and chain systems.  (although actually it was pretty clean already.)
-  local/run_cleanup_segmentation.sh
+  #local/run_cleanup_segmentation.sh
 fi
 
 # steps/cleanup/debug_lexicon.sh --remove-stress true  --nj 200 --cmd "$train_cmd" data/train_clean_100 \
@@ -287,7 +276,11 @@ fi
 
 
 if [ $stage -le 20 ]; then
-  # train and test nnet3 tdnn models on the entire data with data-cleaning.
+  # train and test nnet3 tdnn models on the entire data with fbank.
+  for i in test_clean test_other dev_clean dev_other train_960; do
+    steps/make_fbank.sh --cmd "$train_cmd" --nj 40 data/fbank/$part
+    steps/compute_cmvn_stats.sh data/fbank/$part
+  done
   local/chain/run_tdnn.sh # set "--stage 11" if you have already run local/nnet3/run_tdnn.sh
 fi
 
