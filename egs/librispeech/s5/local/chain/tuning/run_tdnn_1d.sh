@@ -333,7 +333,7 @@ if $test_online_decoding && [ $stage -le 18 ]; then
   steps/online/nnet3/prepare_online_decoding.sh \
        --feature-type fbank \
        --fbank-config conf/fbank.conf \
-       $lang exp/nnet3${nnet3_affix}/extractor $dir ${dir}_online
+       $lang $dir ${dir}_online
 
   rm $dir/.error 2>/dev/null || true
   for data in test_clean test_other dev_clean dev_other; do
