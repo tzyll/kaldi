@@ -277,11 +277,52 @@ fi
 
 if [ $stage -le 20 ]; then
   # train and test nnet3 tdnn models on the entire data with fbank.
-  for i in test_clean test_other dev_clean dev_other train_960; do
+  for part in test_clean test_other dev_clean dev_other train_960; do
     steps/make_fbank.sh --cmd "$train_cmd" --nj 40 data/fbank/$part
     steps/compute_cmvn_stats.sh data/fbank/$part
   done
   local/chain/run_tdnn.sh # set "--stage 11" if you have already run local/nnet3/run_tdnn.sh
+fi
+
+if [ $stage -le 21 ]; then
+  # seed model for semisup training
+  for part in train_clean_460 train_other_500; do
+    utils/copy_data_dir.sh data/$part data/fbank/$part
+    steps/make_fbank.sh --cmd "$train_cmd" --nj 40 data/fbank/$part
+    steps/compute_cmvn_stats.sh data/fbank/$part
+  done
+  local/chain/run_tdnn.sh --stage 0 --train-stage -10 \
+    --train-set train_clean_460 \
+    --gmm tri6b_sup460 \
+    --nnet3_affix _sup460
+fi
+
+if [ $stage -le 22 ]; then
+  # semisup reusing fisher_english's, no ivector, no speed pertub.
+  exp_root=exp/chain_sup460
+  sup_egs_dir=$exp_root/tdnn_1d/egs
+  # get cegs.scp for egs/.
+  for i in $sup_egs_dir/*.cegs; do
+    mv $i ${i}_tmp
+    nnet3-chain-copy-egs ark:${i}_tmp ark,scp:$i,${i/cegs/scp}
+  done
+  for i in $sup_egs_dir/cegs.*.ark; do
+    mv $i ${i}_tmp
+    nnet3-chain-copy-egs ark:${i}_tmp ark,scp:$i,${i/ark/scp}
+  done
+  cat $sup_egs_dir/cegs.*.scp > $sup_egs_dir/cegs.scp
+  rm $sup_egs_dir/{cegs.*.scp,*.tmp}
+  # dir=${exp_root}/chain${chain_affix}/tdnn${tdnn_affix}
+  local/semisup/chain/run_tdnn_50k_semisupervised.sh \
+    --supervised-set train_clean_460 \
+    --unsupervised-set train_other_500 \
+    --exp-root $exp_root \
+    --chain-affix _semi460_500 \
+    --sup-chain-dir $exp_root/tdnn_1d \
+    --sup-egs-dir $sup_egs_dir \
+    --sup-lat-dir $exp_root/tri6b_sup460_train_clean_460_lats \
+    --sup-tree-dir $exp_root/tree \
+    --graph-dir  exp/chain_sup460/tdnn_1d/graph_tgsmall
 fi
 
 # The nnet3 TDNN recipe:
