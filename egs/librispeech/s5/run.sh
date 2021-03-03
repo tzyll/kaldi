@@ -285,7 +285,36 @@ if [ $stage -le 20 ]; then
 fi
 
 if [ $stage -le 21 ]; then
+  # gmm with clean_460 for seed model
+  steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
+    data/train_clean_460 data/lang exp/tri5b exp/tri5b_ali_clean_460
+  steps/train_quick.sh --cmd "$train_cmd" \
+    7000 150000 data/train_clean_460 data/lang exp/tri5b_ali_clean_460 exp/tri6b_sup460
+  # decode using the tri6b_sup460 model
+  utils/mkgraph.sh data/lang_test_tgsmall \
+    exp/tri6b_sup460 exp/tri6b_sup460/graph_tgsmall
+  for test in test_clean test_other dev_clean dev_other; do
+      steps/decode_fmllr.sh --nj 20 --cmd "$decode_cmd" \
+                            exp/tri6b_sup460/graph_tgsmall data/$test exp/tri6b_sup460/decode_tgsmall_$test
+      steps/lmrescore.sh --cmd "$decode_cmd" data/lang_test_{tgsmall,tgmed} \
+                         data/$test exp/tri6b_sup460/decode_{tgsmall,tgmed}_$test
+      steps/lmrescore_const_arpa.sh \
+        --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
+        data/$test exp/tri6b_sup460/decode_{tgsmall,tglarge}_$test
+      steps/lmrescore_const_arpa.sh \
+        --cmd "$decode_cmd" data/lang_test_{tgsmall,fglarge} \
+        data/$test exp/tri6b_sup460/decode_{tgsmall,fglarge}_$test
+  done
+fi
+
+if [ $stage -le 22 ]; then
+  steps/align_fmllr.sh --nj 40 --cmd "$train_cmd" \
+    data/train_clean_460 data/lang exp/tri6b_sup460 exp/tri6b_sup460_ali_train_clean_460
+fi
+
+if [ $stage -le 23 ]; then
   # seed model for semisup training
+  # nnet3 with fbank
   for part in train_clean_460 train_other_500; do
     utils/copy_data_dir.sh data/$part data/fbank/$part
     steps/make_fbank.sh --cmd "$train_cmd" --nj 40 data/fbank/$part
@@ -297,7 +326,7 @@ if [ $stage -le 21 ]; then
     --nnet3_affix _sup460
 fi
 
-if [ $stage -le 22 ]; then
+if [ $stage -le 24 ]; then
   # semisup reusing fisher_english's, no ivector, no speed pertub.
   exp_root=exp/chain_sup460
   sup_egs_dir=$exp_root/tdnn_1d/egs
