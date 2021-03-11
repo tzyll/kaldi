@@ -129,6 +129,7 @@ set -e
 stage=0
 decode_nj=40
 train_set=train_960
+test_sets=
 gmm=tri6b
 nnet3_affix=
 
@@ -291,12 +292,12 @@ if [ $stage -le 15 ]; then
 
 fi
 
-graph_dir=$dir/graph_tgsmall
+graph_dir=$dir/graph
 if [ $stage -le 16 ]; then
   # Note: it might appear that this $lang directory is mismatched, and it is as
   # far as the 'topo' is concerned, but this script doesn't read the 'topo' from
   # the lang directory.
-  utils/mkgraph.sh --self-loop-scale 1.0 --remove-oov data/lang_test_tgsmall $dir $graph_dir
+  utils/mkgraph.sh --self-loop-scale 1.0 --remove-oov data/graph/lang $dir $graph_dir
 fi
 
 iter_opts=
@@ -305,19 +306,15 @@ if [ ! -z $decode_iter ]; then
 fi
 if [ $stage -le 17 ]; then
   rm $dir/.error 2>/dev/null || true
-  for decode_set in test_clean test_other dev_clean dev_other; do
+  for decode_set in $test_sets; do
       (
       steps/nnet3/decode.sh --acwt 1.0 --post-decode-acwt 10.0 \
           --nj $decode_nj --cmd "$decode_cmd" $iter_opts \
-          $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_tgsmall || exit 1
-      steps/lmrescore.sh --cmd "$decode_cmd" --self-loop-scale 1.0 data/lang_test_{tgsmall,tgmed} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tgmed} || exit 1
-      steps/lmrescore_const_arpa.sh \
-          --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tglarge} || exit 1
-      steps/lmrescore_const_arpa.sh \
-          --cmd "$decode_cmd" data/lang_test_{tgsmall,fglarge} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,fglarge} || exit 1
+          $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter} || exit 1
+       steps/lmrescore_const_arpa.sh \
+          --cmd "$decode_cmd" data/graph/lang data/graph/lang_full \
+          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter} \
+          $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_full || exit 1
       ) || touch $dir/.error &
   done
   wait
@@ -336,7 +333,7 @@ if $test_online_decoding && [ $stage -le 18 ]; then
        $lang $dir ${dir}_online
 
   rm $dir/.error 2>/dev/null || true
-  for data in test_clean test_other dev_clean dev_other; do
+  for data in $test_sets; do
     (
       #nspk=$(wc -l <data/${data}_hires/spk2utt)
       # note: we just give it "data/${data}" as it only uses the wav.scp, the
@@ -344,7 +341,7 @@ if $test_online_decoding && [ $stage -le 18 ]; then
       steps/online/nnet3/decode.sh \
           --acwt 1.0 --post-decode-acwt 10.0 \
           --nj $decode_nj --cmd "$decode_cmd" \
-          $graph_dir data/fbank/${data} ${dir}_online/decode_${data}_tgsmall || exit 1
+          $graph_dir data/fbank/${data} ${dir}_online/decode_${data} || exit 1
 
     ) || touch $dir/.error &
   done

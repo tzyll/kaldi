@@ -71,6 +71,8 @@ tdnn_affix=_semisup_1a
 # present
 supervised_set=train_sup50k
 unsupervised_set=train_unsup100k_250k
+test_sets=
+
 
 # Input seed system
 sup_chain_dir=exp/semisup_50k/chain_semi50k_100k_250k/tdnn_1a_sp  # supervised chain system
@@ -135,7 +137,7 @@ fi
 if [ $stage -le 5 ]; then
   steps/lmrescore_const_arpa_undeterminized.sh --cmd "$decode_cmd" \
     --acwt 0.1 --beam 8.0  --skip-scoring true \
-    data/lang_test_{tgsmall,fglarge} \
+    data/graph/lang data/graph/lang_full \
     data/fbank/${unsupervised_set} \
     $sup_chain_dir/decode_${unsupervised_set} \
     $sup_chain_dir/decode_${unsupervised_set}_big
@@ -355,22 +357,46 @@ iter_opts=
 if [ ! -z $decode_iter ]; then
   iter_opts=" --iter $decode_iter "
 fi
-if [ $stage -le 18 ]; then
+if [ $stage -le 17 ]; then
   rm $dir/.error 2>/dev/null || true
-  for decode_set in test_clean test_other dev_clean dev_other; do
+  for decode_set in test_sets; do
       (
       steps/nnet3/decode.sh --acwt 1.0 --post-decode-acwt 10.0 \
-          --nj $nj --cmd "$decode_cmd" $iter_opts \
-          $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_tgsmall || exit 1
-      steps/lmrescore.sh --cmd "$decode_cmd" --self-loop-scale 1.0 data/lang_test_{tgsmall,tgmed} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tgmed} || exit 1
+          --nj $decode_nj --cmd "$decode_cmd" $iter_opts \
+          $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter} || exit 1
       steps/lmrescore_const_arpa.sh \
-          --cmd "$decode_cmd" data/lang_test_{tgsmall,tglarge} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,tglarge} || exit 1
-      steps/lmrescore_const_arpa.sh \
-          --cmd "$decode_cmd" data/lang_test_{tgsmall,fglarge} \
-          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_{tgsmall,fglarge} || exit 1
+          --cmd "$decode_cmd" data/graph/lang data/graph/lang_full \
+          data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter} \
+          $dir/decode_${decode_set}${decode_iter:+_$decode_iter}_full || exit 1
       ) || touch $dir/.error &
+  done
+  wait
+  if [ -f $dir/.error ]; then
+    echo "$0: something went wrong in decoding"
+    exit 1
+  fi
+fi
+
+if $test_online_decoding && [ $stage -le 18 ]; then
+  # note: if the features change (e.g. you add pitch features), you will have to
+  # change the options of the following command line.
+  steps/online/nnet3/prepare_online_decoding.sh \
+       --feature-type fbank \
+       --fbank-config conf/fbank.conf \
+       $lang $dir ${dir}_online
+
+  rm $dir/.error 2>/dev/null || true
+  for data in test_sets; do
+    (
+      #nspk=$(wc -l <data/${data}_hires/spk2utt)
+      # note: we just give it "data/${data}" as it only uses the wav.scp, the
+      # feature type does not matter.
+      steps/online/nnet3/decode.sh \
+          --acwt 1.0 --post-decode-acwt 10.0 \
+          --nj $decode_nj --cmd "$decode_cmd" \
+          $graph_dir data/fbank/${data} ${dir}_online/decode_${data} || exit 1
+
+    ) || touch $dir/.error &
   done
   wait
   if [ -f $dir/.error ]; then

@@ -11,7 +11,7 @@ data_url=www.openslr.org/resources/12
 lm_url=www.openslr.org/resources/11
 
 stage=1
-CUDA_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=0
 
 . ./cmd.sh
 . ./path.sh
