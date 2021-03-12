@@ -72,6 +72,7 @@ tdnn_affix=_semisup_1a
 supervised_set=train_sup50k
 unsupervised_set=train_unsup100k_250k
 test_sets=
+test_online_decoding=true
 
 
 # Input seed system
@@ -359,10 +360,10 @@ if [ ! -z $decode_iter ]; then
 fi
 if [ $stage -le 17 ]; then
   rm $dir/.error 2>/dev/null || true
-  for decode_set in test_sets; do
+  for decode_set in $test_sets; do
       (
       steps/nnet3/decode.sh --acwt 1.0 --post-decode-acwt 10.0 \
-          --nj $decode_nj --cmd "$decode_cmd" $iter_opts \
+          --nj $nj --cmd "$decode_cmd" $iter_opts \
           $graph_dir data/fbank/${decode_set} $dir/decode_${decode_set}${decode_iter:+_$decode_iter} || exit 1
       steps/lmrescore_const_arpa.sh \
           --cmd "$decode_cmd" data/graph/lang data/graph/lang_full \
@@ -383,17 +384,17 @@ if $test_online_decoding && [ $stage -le 18 ]; then
   steps/online/nnet3/prepare_online_decoding.sh \
        --feature-type fbank \
        --fbank-config conf/fbank.conf \
-       $lang $dir ${dir}_online
+       data/graph/lang $dir ${dir}_online
 
   rm $dir/.error 2>/dev/null || true
-  for data in test_sets; do
+  for data in $test_sets; do
     (
       #nspk=$(wc -l <data/${data}_hires/spk2utt)
       # note: we just give it "data/${data}" as it only uses the wav.scp, the
       # feature type does not matter.
       steps/online/nnet3/decode.sh \
           --acwt 1.0 --post-decode-acwt 10.0 \
-          --nj $decode_nj --cmd "$decode_cmd" \
+          --nj $nj --cmd "$decode_cmd" \
           $graph_dir data/fbank/${data} ${dir}_online/decode_${data} || exit 1
 
     ) || touch $dir/.error &
